@@ -12,7 +12,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, roc_auc_score, confusion_matrix, classification_report
 
 
 # Download latest version
@@ -42,7 +42,7 @@ plt.show()
 #data cleaning
 #handling of missing values in bmi
 imputer=SimpleImputer(strategy='mean')  #mean imputation
-df['bmi']=imputer.fit_transform(data[['bmi']]) #imputes missing values in bmi column
+df['bmi']=imputer.fit_transform(df[['bmi']]) #imputes missing values in bmi column
 
 #dropp id in column 
 df.drop('id', axis=1, inplace=True) #drops id column
@@ -61,12 +61,18 @@ Y = df['stroke'] #target variable
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42, stratify=Y) #splitting of dataset into train/test subsets
 
 #logistic regression  
-log_reg=LogisticRegression()    #fits logistic regression model
+log_reg=LogisticRegression(max_iter=1000, class_weight='balanced')    #fits logistic regression model
 log_reg.fit(X_train, Y_train)    #predicts on test set
 y_pred_logreg=log_reg.predict(X_test)   #predicts on test set
 
 #random forest classifier
-rf=RandomForestClassifier(n_estimators=1000)  #fits random forest classifier
+rf=RandomForestClassifier(
+    n_estimators=200, 
+    class_weight='balanced',
+    max_depth=10,
+    random_state=42)  
+
+#fits random forest model
 rf.fit(X_train, Y_train)    #prediction on test set
 y_pred_rf=rf.predict(X_test)  #predicts on test set
 
@@ -89,6 +95,24 @@ def evaluate_model(y_true, y_pred, model_name):
     plt.ylabel('True')
     plt.title(f'{model_name} Confusion Matrix')
     plt.show()
+
+def plot_roc(y_true, y_pred, model_name):
+    fpr, tpr, thresholds = roc_curve(y_true, y_pred)
+    plt.plot(fpr, tpr, label=f'{model_name} (AUC = {roc_auc_score(y_true, y_pred):.2f})')
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(f'ROC Curve - {model_name}')
+    plt.legend()
+    plt.show()
+
+#for logistic reg
+y_proba_logreg=log_reg.predict_proba(X_test)[:, 1]  #predicts probabilities
+plot_roc(Y_test, y_proba_logreg, "Logistic Regression")
+
+#for random forest
+y_proba_rf=rf.predict_proba(X_test)[:,1]
+plot_roc(Y_test, y_proba_rf, "Random Forest")
 
 #evaallujation on both models;
 evaluate_model(Y_test, y_pred_logreg, "Logistic Regression")
